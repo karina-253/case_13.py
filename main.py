@@ -12,20 +12,40 @@ def get_information(initial_data):
     maximum queue length, brands, current queue length, and the end time of the previous client.
     """
     automates = {}
-    with open(initial_data, 'r', encoding='utf-8') as file:
-        for line in file:
-            if line.strip():
-                parts = line.strip().split()
-                num = int(parts[0])
-                max_queue = int(parts[1])
-                brands = parts[2:]
+    try:
+        with open(initial_data, 'r', encoding='utf-8') as file:
+            for line_num, line in enumerate(file, start=1):
+                stripped_line = line.strip()
+                if not stripped_line:
+                    continue  # пропускаем пустые строки
+
+                parts = stripped_line.split()
+
+                # Проверяем, что минимум 3 части (номер, макс очередь, минимум один бренд)
+                if len(parts) < 3:
+                    print(f"Warning: Строка {line_num} пропущена — недостаточно данных: {stripped_line}")
+                    continue
+
+                try:
+                    num = int(parts[0])
+                    max_queue = int(parts[1])
+                    brands = parts[2:]
+                except ValueError as ve:
+                    print(f"Warning: Строка {line_num} пропущена — ошибка преобразования: {ve}")
+                    continue
+
                 automates[num] = {
                     'max_queue': max_queue,
                     'brands': brands,
                     'queue': 0,
                     'previous_time': datetime.datetime.strptime('00:00', '%H:%M'),
-                    'current_client': None  # Текущий обслуживаемый клиент
+                    'current_client': None
                 }
+    except FileNotFoundError:
+        print(f"Error: Файл '{initial_data}' не найден.")
+    except Exception as e:
+        print(f"Error: Непредвиденная ошибка при чтении файла: {e}")
+
     return automates
 
 
@@ -35,12 +55,24 @@ def get_request(line):
     :param line: A string containing time, volume, and brand information.
     :return: A dictionary with keys 'time', 'volume', and 'brand'.
     """
-    time_str, volume, brand = line.strip().split()
-    return {
-        'time': datetime.datetime.strptime(time_str, '%H:%M'),
-        'volume': int(volume),
-        'brand': brand
-    }
+    try:
+        parts = line.strip().split()
+        if len(parts) != 3:
+            print(f"Warning: Неправильный формат строки запроса: {line.strip()}")
+            return None
+
+        time_str, volume_str, brand = parts
+        time = datetime.datetime.strptime(time_str, '%H:%M')
+        volume = int(volume_str)
+
+        return {
+            'time': time,
+            'volume': volume,
+            'brand': brand
+        }
+    except ValueError as e:
+        print(f"Warning: Ошибка преобразования данных запроса: {e} — строка: {line.strip()}")
+        return None
 
 
 def suitable_automates(request, automates):
@@ -50,8 +82,12 @@ def suitable_automates(request, automates):
     :param automates: A dictionary containing automate data.
     :return: A dictionary of suitable automates.
     """
-    return {num: automates[num] for num in automates
-            if request['brand'] in automates[num]['brands']}
+    brand = request.get('brand')
+    if brand is None:
+        print("Warning: В запросе отсутствует ключ 'brand'")
+        return {}
+
+    return {num: automates[num] for num in automates if brand in automates[num]['brands']}
 
 
 def automate_num(suitable):
@@ -100,20 +136,20 @@ def print_automates_state(automates):
               f'->{queue_display}')
 
 
-def calculate_lost_profit(gas_prices, fuel_sold_by_brand, lost_clients_by_brand):
+def calculate_lost_profit(petrol_prices, fuel_sold_by_brand, lost_clients_by_brand):
     """
     Calculates and analyzes lost profit and recommends a new fuel column.
     """
-    print(f"\n{'=' * 60}")
+    print(f"\n{'#' * 60}")
     print("АНАЛИЗ РЕНТАБЕЛЬНОСТИ ДОПОЛНИТЕЛЬНОЙ КОЛОНКИ")
-    print(f"{'=' * 60}")
+    print(f"{'#' * 60}")
 
     # Статистика по потерянным клиентам
     print("\nПотерянные клиенты по маркам топлива:")
     total_lost_volume = 0
     total_lost_revenue = 0
 
-    for brand in sorted(gas_prices.keys()):
+    for brand in sorted(petrol_prices.keys()):
         lost_count = lost_clients_by_brand.get(brand, 0)
         if lost_count > 0:
             # Оцениваем средний объем для потерянных клиентов (используем средний объем проданного топлива)
@@ -123,7 +159,7 @@ def calculate_lost_profit(gas_prices, fuel_sold_by_brand, lost_clients_by_brand)
                 avg_volume = 30  # Средний объем, если нет данных
 
             lost_volume = lost_count * avg_volume
-            lost_revenue = lost_volume * gas_prices[brand]
+            lost_revenue = lost_volume * petrol_prices[brand]
 
             total_lost_volume += lost_volume
             total_lost_revenue += lost_revenue
@@ -148,7 +184,7 @@ def calculate_lost_profit(gas_prices, fuel_sold_by_brand, lost_clients_by_brand)
 
         # Оценка рентабельности
         monthly_lost_revenue = total_lost_revenue * 30  # Приблизительно за месяц
-        column_cost = 1500000  # Примерная стоимость колонки в рублях
+        column_cost = 1700000  # Примерная стоимость колонки в рублях
         months_to_payback = column_cost / monthly_lost_revenue if monthly_lost_revenue > 0 else float('inf')
 
         print(f"\nОЦЕНКА РЕНТАБЕЛЬНОСТИ:")
@@ -171,7 +207,7 @@ def main():
     :return: None
     """
     # Цены на бензин
-    gas_prices = {'АИ-80': 45.0, 'АИ-92': 50.5, 'АИ-95': 54.8, 'АИ-98': 62.3}
+    petrol_prices = {'АИ-80': 38.0, 'АИ-92': 60.5, 'АИ-95': 65.0, 'АИ-98': 82.3}
 
     # Статистика продаж
     fuel_sold = {'АИ-80': 0, 'АИ-92': 0, 'АИ-95': 0, 'АИ-98': 0}
@@ -180,7 +216,7 @@ def main():
     lost_clients_by_brand = {'АИ-80': 0, 'АИ-92': 0, 'АИ-95': 0, 'АИ-98': 0}
 
     # Чтение данных об автоматах
-    automates = get_information('azs.txt')
+    automates = get_information('azs_data.txt')
 
     # Словарь для хранения событий завершения обслуживания
     # Ключ - время завершения, значение - информация о клиенте
@@ -212,6 +248,8 @@ def main():
             automate['queue'] -= 1
             automate['previous_time'] = finish_time
             automate['current_client'] = None
+
+
 
             # Удаляем событие
             del finish_events[finish_time]
@@ -258,7 +296,7 @@ def main():
 
             # Обновляем статистику продаж
             fuel_sold[request['brand']] += request['volume']
-            total_revenue += request['volume'] * gas_prices[request['brand']]
+            total_revenue += request['volume'] * petrol_prices[request['brand']]
 
     # Обрабатываем оставшиеся события завершения
     while finish_events:
@@ -278,7 +316,7 @@ def main():
         print_automates_state(automates)
 
     # Вывод итоговой статистики
-    print(f'\n{"=" * 60}')
+    print(f'\n{"#" * 60}')
     print(f'{lcl.GASOLINE_SOLD}:')
     for brand in sorted(fuel_sold.keys()):
         print(f'  {brand}: {fuel_sold[brand]} л')
@@ -288,8 +326,9 @@ def main():
     print(f'{lcl.LOST_CLIENTS}: {lost_clients}')
 
     # Анализ рентабельности дополнительной колонки
-    calculate_lost_profit(gas_prices, fuel_sold, lost_clients_by_brand)
+    calculate_lost_profit(petrol_prices, fuel_sold, lost_clients_by_brand)
 
 
 if __name__ == '__main__':
     main()
+    
