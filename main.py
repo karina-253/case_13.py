@@ -34,7 +34,7 @@ def get_information(initial_data: str) -> Dict[int, Dict[str, Any]]:
                 parts = stripped_line.split()
 
                 if len(parts) < 3:
-                    print(f"Warning: Строка {line_num} пропущена — недостаточно данных: {stripped_line}")
+                    print(f"Warning: {lcl.LINE} {line_num} {lcl.SKIPPED_LINE} {stripped_line}")
                     continue
 
                 try:
@@ -42,7 +42,7 @@ def get_information(initial_data: str) -> Dict[int, Dict[str, Any]]:
                     max_queue = int(parts[1])
                     brands = parts[2:]
                 except ValueError as ve:
-                    print(f"Warning: Строка {line_num} пропущена — ошибка преобразования: {ve}")
+                    print(f"Warning: {lcl.LINE} {line_num} {lcl.CONVERSION_ERROR} {ve}")
                     continue
 
                 automates[num] = {
@@ -53,9 +53,9 @@ def get_information(initial_data: str) -> Dict[int, Dict[str, Any]]:
                     'current_client': None
                 }
     except FileNotFoundError:
-        print(f"Error: Файл '{initial_data}' не найден.")
+        print(f"Error: {lcl.FILE} '{initial_data}' {lcl.FILE_NOT_FOUND}")
     except Exception as e:
-        print(f"Error: Непредвиденная ошибка при чтении файла: {e}")
+        print(f"Error: {lcl.UNEXPECTED_ERROR } {e}")
 
     return automates
 
@@ -78,7 +78,7 @@ def get_request(line: str) -> Optional[Dict[str, Any]]:
     try:
         parts = line.strip().split()
         if len(parts) != 3:
-            print(f"Warning: Неправильный формат строки запроса: {line.strip()}")
+            print(f"Warning: {lcl.BAD_REQUEST_FORMAT} {line.strip()}")
             return None
 
         time_str, volume_str, brand = parts
@@ -91,7 +91,7 @@ def get_request(line: str) -> Optional[Dict[str, Any]]:
             'brand': brand
         }
     except ValueError as e:
-        print(f"Warning: Ошибка преобразования данных запроса: {e} — строка: {line.strip()}")
+        print(f"Warning: {lcl.REQUEST_TRANSFORM_ERROR} {e} — {lcl.LINE}: {line.strip()}")
         return None
 
 
@@ -110,7 +110,7 @@ def suitable_automates(request: Dict[str, Any], automates: Dict[int, Dict[str, A
 
     brand = request.get('brand')
     if brand is None:
-        print("Warning: В запросе отсутствует ключ 'brand'")
+        print(f"Warning: {lcl.KEY_MISSING} 'brand'")
         return {}
 
     return {num: automates[num] for num in automates if brand in automates[num]['brands']}
@@ -192,11 +192,11 @@ def calculate_lost_profit(petrol_prices:  Dict[str, float],
     Returns:
         None: The function don't return anything, only outputs information to the console.
     """
-    print(f"\n{'#' * 60}")
-    print("АНАЛИЗ РЕНТАБЕЛЬНОСТИ ДОПОЛНИТЕЛЬНОЙ КОЛОНКИ")
-    print(f"{'#' * 60}")
+    print(f"\n{'~' * 60}")
+    print(f"{lcl.ANALYSIS_ADDITIONAL_RENTABILITY}")
+    print(f"{'~' * 60}")
 
-    print("\nПотерянные клиенты по маркам топлива:")
+    print(f"\n{lcl.LOST_CLIENTS_BY_BRANDS}")
     total_lost_volume = 0
     total_lost_revenue = 0
 
@@ -214,38 +214,38 @@ def calculate_lost_profit(petrol_prices:  Dict[str, float],
             total_lost_volume += lost_volume
             total_lost_revenue += lost_revenue
 
-            print(f"  {brand}: {lost_count} клиентов, "
-                  f"потеряно ~{lost_volume:.1f} л, "
-                  f"упущенная выручка ~{lost_revenue:.2f} руб.")
+            print(f"  {brand}: {lost_count} {lcl.CLIENTS} "
+                  f"{lcl.LOST} ~{lost_volume:.1f} {lcl.LITERS} "
+                  f"{lcl.LOST_REVENUE} ~{lost_revenue:.2f} {lcl.RUBLES}")
 
-    print(f"\nИТОГО: потеряно {total_lost_volume:.1f} л, "
-          f"упущенная выручка {total_lost_revenue:.2f} руб.")
+    print(f"\n{lcl.TOTAL_LOST} {total_lost_volume:.1f} {lcl.LITERS} "
+          f"{lcl.LOST_REVENUE} {total_lost_revenue:.2f} {lcl.RUBLES}")
 
-    print(f"\nАНАЛИЗ НЕОБХОДИМОСТИ НОВОЙ КОЛОНКИ:")
+    print(f"\n{lcl.ANALYZE_NEW_COLUMN}")
 
     if lost_clients_by_brand:
         most_lost_brand = max(lost_clients_by_brand.items(),
                               key=lambda x: x[1])[0]
 
-        print(f"Наибольшее количество потерянных клиентов - марка {most_lost_brand}")
-        print(f"Рекомендуется установить дополнительную колонку с топливом {most_lost_brand}")
+        print(f"{lcl.HIGHEST_LOST_CLENTS} {most_lost_brand}")
+        print(f"{lcl.RECOMMEND_INSTALLATION} {most_lost_brand}")
 
         monthly_lost_revenue = total_lost_revenue * 30
         column_cost = 1700000
         months_to_payback = column_cost / monthly_lost_revenue if monthly_lost_revenue > 0 else float('inf')
 
-        print(f"\nОЦЕНКА РЕНТАБЕЛЬНОСТИ:")
-        print(f"Ежемесячная упущенная выгода (приблизительно): {monthly_lost_revenue:,.0f} руб.")
-        print(f"Примерная стоимость новой колонки: {column_cost:,.0f} руб.")
+        print(f"\n{lcl.EVALUATION_RENTABILITY}")
+        print(f"{lcl.MONTHLY_LOSS_BENEFIT} {monthly_lost_revenue:,.0f} {lcl.RUBLES}")
+        print(f"{lcl.APPROXIMATE_COST_COLUMN} {column_cost:,.0f} {lcl.RUBLES}")
 
         if months_to_payback <= 12:
-            print(f"Срок окупаемости: {months_to_payback:.1f} месяцев (РЕНТАБЕЛЬНО)")
+            print(f"{lcl.PAYBACK_PERIOD} {months_to_payback:.1f} {lcl.MONTHS} {lcl.PROFITABLE}")
         elif months_to_payback <= 24:
-            print(f"Срок окупаемости: {months_to_payback:.1f} месяцев (УМЕРЕННО РЕНТАБЕЛЬНО)")
+            print(f"{lcl.PAYBACK_PERIOD} {months_to_payback:.1f} {lcl.MONTHS} {lcl.MODERATELY_PROFITABLE}")
         else:
-            print(f"Срок окупаемости: {months_to_payback:.1f} месяцев (НЕРЕНТАБЕЛЬНО)")
+            print(f"{lcl.PAYBACK_PERIOD} {months_to_payback:.1f} {lcl.MONTHS} {lcl.UNPROFITABLE}")
     else:
-        print("Потерянных клиентов нет - дополнительная колонка не требуется")
+        print(f"{lcl.NO_ADDITIONAL_CLIENTS}")
 
 
 def main() -> None:
@@ -286,7 +286,7 @@ def main() -> None:
             finish_time = min(finish_events.keys())
             finish_info = finish_events[finish_time]
 
-            print(f'\nВ {finish_time.strftime("%H:%M")} клиент {finish_info["arrival_time"].strftime("%H:%M")} '
+            print(f'\nВ {finish_time.strftime("%H:%M")} {lcl.CLIENT} {finish_info["arrival_time"].strftime("%H:%M")} '
                   f'{finish_info["brand"]} {finish_info["volume"]} {finish_info["duration"]} '
                   f'{lcl.FINISHED_REFUELING}')
 
@@ -338,7 +338,7 @@ def main() -> None:
         finish_time = min(finish_events.keys())
         finish_info = finish_events[finish_time]
 
-        print(f'\nВ {finish_time.strftime("%H:%M")} клиент {finish_info["arrival_time"].strftime("%H:%M")} '
+        print(f'\nВ {finish_time.strftime("%H:%M")} {lcl.CLIENT} {finish_info["arrival_time"].strftime("%H:%M")} '
               f'{finish_info["brand"]} {finish_info["volume"]} {finish_info["duration"]} '
               f'{lcl.FINISHED_REFUELING}')
 
@@ -350,13 +350,13 @@ def main() -> None:
 
         print_automates_state(automates)
 
-    print(f'\n{"#" * 60}')
+    print(f'\n{"~" * 60}')
     print(f'{lcl.GASOLINE_SOLD}:')
     for brand in sorted(fuel_sold.keys()):
         print(f'  {brand}: {fuel_sold[brand]} л')
 
     print(f'\n{lcl.GASOLINE_SOLD_FINALL}: {sum(fuel_sold.values())} л')
-    print(f'{lcl.REVENUE}: {total_revenue:.2f} руб.')
+    print(f'{lcl.REVENUE}: {total_revenue:.2f} {lcl.RUBLES}')
     print(f'{lcl.LOST_CLIENTS}: {lost_clients}')
 
     calculate_lost_profit(petrol_prices, fuel_sold, lost_clients_by_brand)
@@ -364,3 +364,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+    
